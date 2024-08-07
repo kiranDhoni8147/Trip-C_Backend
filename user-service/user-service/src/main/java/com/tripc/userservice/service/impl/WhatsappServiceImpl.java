@@ -20,6 +20,7 @@ public class WhatsappServiceImpl implements WhatsappService {
     @Value("${twilio.whatsapp.from}")
     private String fromWhatsAppNumber;
 
+
     @Override
     public void sendPasswordResetWhatsApp(User user, String otp) {
         Twilio.init(accountSid, authToken);

@@ -20,6 +20,7 @@ public class SmsServiceImpl implements SmsService {
     @Value("${twilio.phone.number}")
     private String fromPhoneNumber;
 
+
     @Override
     public void sendPasswordResetSMS(User user, String otp){
         Twilio.init(accountSid,authToken);

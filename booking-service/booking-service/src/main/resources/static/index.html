@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Test</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+<h1>Create Booking</h1>
+<form id="bookingForm">
+    <input type="text" id="name" placeholder="Name" required><br>
+    <input type="email" id="email" placeholder="Email" required><br>
+    <input type="text" id="phoneNumber" placeholder="Phone Number" required><br>
+    <input type="text" id="carDetails" placeholder="Car Details" required><br>
+    <input type="text" id="pickupLocation" placeholder="Pickup Location" required><br>
+    <input type="text" id="dropLocation" placeholder="Drop Location" required><br>
+    <input type="datetime-local" id="pickupDateTime" required><br>
+    <input type="number" id="totalFare" placeholder="Total Fare" required><br>
+    <button type="submit">Create Booking</button>
+</form>
+
+<script>
+
+    const jwtToken = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3OTk3MDgyMzUyIiwiaWF0IjoxNzIzMzU2MzIyLCJleHAiOjE3MjMzNTk5MjJ9.128mjiaxEN1rRcXksGhaE4LJJx6WSgXEhFhXHy4vOGg';
+    document.getElementById('bookingForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        // Gather booking details from the form
+        const bookingData = {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            phoneNumber: document.getElementById('phoneNumber').value,
+            carDetails: document.getElementById('carDetails').value,
+            pickupLocation: document.getElementById('pickupLocation').value,
+            dropLocation: document.getElementById('dropLocation').value,
+            pickupDateTime: document.getElementById('pickupDateTime').value,
+            totalFare: parseFloat(document.getElementById('totalFare').value)
+        };
+
+
+        fetch('/api/bookings/createbooking', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwtToken}`
+            },
+            body: JSON.stringify(bookingData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.orderId) {
+                console.log(data);
+                initiatePayment(data.orderId, data.totalFare);
+            } else {
+                console.log(data);
+                alert('Booking creation failed!');
+            }
+        });
+    });
+
+function initiatePayment(orderId, amount) {
+    var options = {
+        "key": "rzp_test_ZdogiLsa53jjVq", // Use your actual test key
+        "amount": amount * 100, // Amount in paise
+        "currency": "INR",
+        "name": "TRIPC",
+        "description": "Booking Payment",
+        "order_id": orderId, // This is the order ID passed from your backend
+        "handler": function (response) {
+            console.log("Handler Response:", response);
+            if (response.razorpay_payment_id && response.razorpay_signature) {
+                verifyPayment(response);
+            } else {
+                console.error('Unexpected handler response:', response);
+                alert('Payment verification information is incomplete. Please try again.');
+            }
+        },
+        "prefill": {
+            "name": "",
+            "email": "",
+            "contact": ""
+        },
+        "theme": {
+            "color": "#F37254"
+        },
+        "modal": {
+            "ondismiss": function() {
+                console.log("Payment Popup Closed by User");
+                alert('Payment process was cancelled. Please try again.');
+            }
+        }
+    };
+
+    var paymentObject = new Razorpay(options);
+    paymentObject.open();
+
+    paymentObject.on('payment.failed', function (response) {
+    console.error("Payment Failed Response:", response);
+    alert(`Payment failed: ${response.error.description}`);
+
+    console.log("Attempting to notify backend of payment failure...");
+
+    // Notify backend about payment failure
+    fetch('/api/bookings/payment-failed', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify({
+            orderId: orderId,
+            paymentId: response.error.metadata.payment_id,
+            reason: response.error.description,
+            signature: response.error.metadata.signature // if available
+        }),
+    })
+    .then(response => {
+        console.log("Backend response:", response);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text();
+    })
+    .then(data => {
+        if (data) {
+            console.log('Payment failure logged:', JSON.parse(data));
+        } else {
+            console.log('Payment failure logged successfully, but no response data.');
+        }
+    })
+    .catch(error => console.error('Error logging payment failure:', error));
+});
+
+}
+
+function verifyPayment(paymentResponse) {
+    if (paymentResponse.razorpay_payment_id && paymentResponse.razorpay_signature) {
+        fetch('/api/bookings/confirmbooking', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwtToken}`
+            },
+            body: JSON.stringify({
+                orderId: paymentResponse.razorpay_order_id,
+                paymentId: paymentResponse.razorpay_payment_id,
+                signature: paymentResponse.razorpay_signature
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                // If the response is not OK (e.g., 400 or 500), throw an error
+                throw new Error('Payment verification failed!');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.bookingStatus) {
+                console.log(data);
+                alert('Payment successful!');
+            } else {
+                console.log(data);
+                alert('Payment verification failed!');
+            }
+        })
+        .catch(error => {
+            console.error('Error during payment verification:', error);
+            alert(`Payment verification error: ${error.message}`);
+        });
+    } else if (paymentResponse.error) {
+        alert(`Payment failed: ${paymentResponse.error.description}`);
+        console.error('Payment failed', paymentResponse.error);
+    } else {
+        alert('Unexpected error occurred.');
+    }
+}
+</script>
+</body>
+</html>

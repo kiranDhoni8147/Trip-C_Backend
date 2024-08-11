@@ -1,4 +1,4 @@
-package com.tripc.bookingservice.enums;
+package com.tripc.userservice.dto;
 
 public enum BookingStatus {
     PENDING,

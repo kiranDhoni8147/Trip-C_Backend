@@ -3,7 +3,9 @@ package com.tripc.userservice.controller;
 import com.tripc.userservice.dto.*;
 import com.tripc.userservice.exception.InvalidOrExpiredOtpException;
 import com.tripc.userservice.exception.LoginException;
+import com.tripc.userservice.model.User;
 import com.tripc.userservice.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,19 +49,6 @@ public class UserController{
         }
     }
 
-    @GetMapping("/bookings")
-    public ResponseEntity<List<String>> getBookings(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
-        }
-
-        String username = authentication.getName();
-        List<String> bookings = new ArrayList<>();
-        bookings.add(username + "'s Bookings retrieved");
-
-        return ResponseEntity.ok(bookings);
-    }
-
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@RequestBody @Valid ForgetPasswordRequestDto forgetPasswordRequestDto){
         try{
@@ -72,6 +61,16 @@ public class UserController{
         }
     }
 
+    @GetMapping("/{phoneNumber}")
+    public ResponseEntity<UserDto> getUserByUsername(@PathVariable String phoneNumber) {
+        UserDto userDto = userService.getUserByPhoneNumber(phoneNumber);
+        if (userDto == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null); // Return 404 if user is not found
+        }
+        return new ResponseEntity<>(userDto, HttpStatus.OK);
+    }
+
+
     @PostMapping("/reset-password")
     public ResponseEntity<String> resetPassword(@RequestBody @Valid ResetPasswordRequestDto request){
         try {
@@ -79,6 +78,36 @@ public class UserController{
             return ResponseEntity.ok("Password has been reset successfully.Please Login");
         } catch (RuntimeException | InvalidOrExpiredOtpException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error: " + ex.getMessage());
+        }
+    }
+
+    @GetMapping("/contact-us")
+    public ResponseEntity<String> submitContactForm(@RequestBody @Valid ContactRequestDto contactRequestDto) {
+        userService.sendContactEmail(contactRequestDto);
+        return ResponseEntity.ok("Your message has been sent successfully.");
+    }
+
+    @GetMapping("/bookings")
+    public ResponseEntity<List<BookingResponseDto>> getBookings(Authentication authentication, HttpServletRequest request) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        }
+
+        String userId = authentication.getName();
+        String token = request.getHeader("Authorization");
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7); // Remove "Bearer " from the token string
+        }
+
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null); // User ID not found
+        }
+        List<BookingResponseDto> bookings = userService.getBookingsByUserId(userId,token);
+
+        if (bookings != null) {
+            return ResponseEntity.ok(bookings);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null); // No bookings found
         }
     }
 }

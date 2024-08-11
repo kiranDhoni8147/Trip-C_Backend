@@ -1,15 +1,15 @@
 package com.tripc.paymentservice.dto;
 
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.http.HttpStatus;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class PaymentVerificationRequest {
-
-    private String orderId;
-    private String paymentId;
-    private String signature;
+public class PaymentVerificationResponseDto {
+    private String message;
+    private HttpStatus httpStatus;
 }

@@ -1,6 +1,5 @@
-package com.tripc.bookingservice.dto;
+package com.tripc.userservice.dto;
 
-import com.tripc.bookingservice.enums.BookingStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;

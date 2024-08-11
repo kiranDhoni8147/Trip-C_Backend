@@ -1,5 +1,7 @@
 package com.tripc.userservice.service.impl;
 
+import com.tripc.userservice.dto.BookingResponseDto;
+import com.tripc.userservice.dto.ContactRequestDto;
 import com.tripc.userservice.dto.LoginRequestDto;
 import com.tripc.userservice.dto.UserDto;
 import com.tripc.userservice.exception.InvalidOrExpiredOtpException;
@@ -11,10 +13,17 @@ import com.tripc.userservice.repository.UserRepository;
 import com.tripc.userservice.service.*;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -47,6 +56,11 @@ public class UserServiceImpl implements UserService {
     @Autowired
     WhatsappService whatsappService;
 
+    @Autowired
+    RestTemplate restTemplate;
+
+    private final String bookingServiceUrl = "http://localhost:8082/api/bookings/getbookingsbyuserid";
+
     @Override
     public void register(UserDto userDto) {
         Optional<User> existingUser= userRepository.findByPhoneNumber(userDto.getPhoneNumber());
@@ -56,7 +70,6 @@ public class UserServiceImpl implements UserService {
         User user=modelMapper.map(userDto,User.class);
         user.setPassword(passwordEncoder.encode(userDto.getPassword()));
         userRepository.save(user);
-
     }
 
     @Override
@@ -72,9 +85,10 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User getUserByPhoneNumber(String phoneNumber) {
-        return userRepository.findByPhoneNumber(phoneNumber)
+    public UserDto getUserByPhoneNumber(String phoneNumber) {
+        User user= userRepository.findByPhoneNumber(phoneNumber)
                 .orElseThrow(() -> new RuntimeException("User not found with MobileNumber: "+phoneNumber));
+        return modelMapper.map(user, UserDto.class);
     }
 
     @Override
@@ -104,5 +118,27 @@ public class UserServiceImpl implements UserService {
         smsService.sendSuccessSMS(user.getPhoneNumber());
         whatsappService.sendSuccessWhatsApp(user.getPhoneNumber());
         mailService.sendSuccessMail(user.getEmail());
+    }
+
+    @Override
+    public List<BookingResponseDto> getBookingsByUserId(String userId,String token) {
+
+        String url = bookingServiceUrl + "?userId=" + userId;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token); // Sets Authorization header with Bearer token
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        ResponseEntity<List<BookingResponseDto>> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                new ParameterizedTypeReference<List<BookingResponseDto>>() {}
+        );
+        return response.getBody();
+    }
+
+    @Override
+    public void sendContactEmail(ContactRequestDto contactRequestDto) {
+        mailService.sendContactUsMail(contactRequestDto);
     }
 }

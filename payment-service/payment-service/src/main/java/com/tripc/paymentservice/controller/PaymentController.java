@@ -4,15 +4,13 @@ import com.razorpay.RazorpayException;
 import com.tripc.paymentservice.dto.PaymentRequestDto;
 import com.tripc.paymentservice.dto.PaymentResponseDto;
 import com.tripc.paymentservice.dto.PaymentVerificationRequest;
+import com.tripc.paymentservice.dto.PaymentVerificationResponseDto;
 import com.tripc.paymentservice.exception.ResourceNotFoundException;
 import com.tripc.paymentservice.service.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -24,6 +22,7 @@ public class PaymentController {
     @PostMapping("/create")
     public ResponseEntity<PaymentResponseDto> createPayment(@RequestBody PaymentRequestDto paymentRequestDTO) {
         try {
+            System.out.println("request reached to payment controller to create payment");
             PaymentResponseDto responseDTO = paymentService.createPayment(paymentRequestDTO);
             return new ResponseEntity<>(responseDTO, HttpStatus.CREATED);
         } catch (RazorpayException e) {
@@ -32,12 +31,23 @@ public class PaymentController {
     }
 
     @PostMapping("/verify")
-    public ResponseEntity<String> verifyPayment(@RequestBody PaymentVerificationRequest paymentVerificationRequest) {
+    public ResponseEntity<PaymentVerificationResponseDto> verifyPayment(@RequestBody PaymentVerificationRequest paymentVerificationRequest) {
         try {
-            String response = paymentService.verifyPayment(paymentVerificationRequest);
+            PaymentVerificationResponseDto response = paymentService.verifyPayment(paymentVerificationRequest);
             return new ResponseEntity<>(response, HttpStatus.OK);
         } catch (RuntimeException | ResourceNotFoundException e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new PaymentVerificationResponseDto("An error occurred", HttpStatus.INTERNAL_SERVER_ERROR));
         }
     }
+    @GetMapping("/test-signature")
+    public ResponseEntity<String> getTestSignature(@RequestParam String orderId, @RequestParam String paymentId) {
+        try {
+            String testSignature = paymentService.verifyTestSignature(orderId, paymentId);
+            return new ResponseEntity<>(testSignature, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>("Error generating signature", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+
 }

@@ -1,5 +1,6 @@
 package com.tripc.userservice.service.impl;
 
+import com.tripc.userservice.dto.ContactRequestDto;
 import com.tripc.userservice.model.User;
 import com.tripc.userservice.service.MailService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,4 +50,19 @@ public class MailServiceImpl implements MailService {
 
         javaMailSender.send(simpleMailMessage);
     }
+
+    @Override
+    public void sendContactUsMail(ContactRequestDto contactRequestDto) {
+        SimpleMailMessage simpleMailMessage=new SimpleMailMessage();
+        simpleMailMessage.setTo(contactRequestDto.getEmail());
+        simpleMailMessage.setSubject("New Contact Us Query from " + contactRequestDto.getName());
+        simpleMailMessage.setText("Message: " + contactRequestDto.getMessage() + "\n\n"
+                + "From: " + contactRequestDto.getName() + "\n"
+                + "Email: " + contactRequestDto.getEmail() + "\n"
+                + "Subject: " + contactRequestDto.getSubject());
+
+        javaMailSender.send(simpleMailMessage);
+    }
+
+
 }
